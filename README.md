@@ -18,6 +18,7 @@ This package is a drop-in replacement for Plots.jl that contains many statistica
     - marginalhist
     - corrplot/cornerplot
     - andrewsplot
+    - MDS plot
 
 It is thus slightly less lightweight, but has more functionality. Main documentation is found in the Plots.jl documentation (https://juliaplots.github.io).
 
@@ -307,6 +308,55 @@ plot(hc)
 
 ![dendrogram](https://user-images.githubusercontent.com/381464/43355211-855d5aa2-920d-11e8-82d7-2bf1a7aeccb5.png)
 
+The `branchorder=:optimal` option in `hclust()` can be used to minimize
+the distance between neighboring leaves:
+
+```julia
+using Clustering
+using Distances
+using StatsPlots
+using Random
+
+n = 40
+
+mat = zeros(Int, n, n)
+# create banded matrix
+for i in 1:n
+    last = minimum([i+Int(floor(n/5)), n])
+    for j in i:last
+        mat[i,j] = 1
+    end
+end
+
+# randomize order
+mat = mat[:, randperm(n)]
+dm = pairwise(Euclidean(), mat, dims=2)
+
+# normal ordering
+hcl1 = hclust(dm, linkage=:average)
+plot(
+    plot(hcl1, xticks=false),
+    heatmap(mat[:, hcl1.order], colorbar=false, xticks=(1:n, ["$i" for i in hcl1.order])),
+    layout=grid(2,1, heights=[0.2,0.8])
+    )
+```
+
+![heatmap dendrogram non-optimal](https://user-images.githubusercontent.com/3502975/59949267-a1824e00-9440-11e9-96dd-4628a8372ae2.png)
+
+Compare to:
+
+```julia
+# optimal ordering
+hcl2 = hclust(dm, linkage=:average, branchorder=:optimal)
+plot(
+    plot(hcl2, xticks=false),
+    heatmap(mat[:, hcl2.order], colorbar=false, xticks=(1:n, ["$i" for i in hcl2.order])),
+    layout=grid(2,1, heights=[0.2,0.8])
+    )
+```
+
+![heatmap dendrogram optimal](https://user-images.githubusercontent.com/3502975/59949464-20778680-9441-11e9-8ed7-9a639b50dfb2.png)
+
 ## GroupedErrors.jl for population analysis
 
 Population analysis on a table-like data structures can be done using the highly recommended [GroupedErrors](https://github.com/piever/GroupedErrors.jl) package.
@@ -325,3 +375,23 @@ Some statistical analysis is computed at the single subject level (for example t
 For more information please refer to the [README](https://github.com/piever/GroupedErrors.jl/blob/master/README.md).
 
 A GUI based on QML and the GR Plots.jl backend to simplify the use of StatsPlots.jl and GroupedErrors.jl even further can be found [here](https://github.com/piever/PlugAndPlot.jl) (usable but still in alpha stage).
+
+## Ordinations
+
+MDS from [`MultivariateStats.jl`](https://github.com/JuliaStats/MultivariateStats.jl)
+can be plotted as scatter plots.
+
+```julia
+using MultivariateStats, RDatasets, StatsPlots
+
+iris = dataset("datasets", "iris")
+X = convert(Matrix, iris[:, 1:4])
+M = fit(MDS, X'; maxoutdim=2)
+
+plot(M, group=iris.Species)
+```
+
+![MDS plot](https://user-images.githubusercontent.com/3502975/64883550-a6186600-d62d-11e9-8f6b-c5094abf5573.png)
+
+PCA will be added once the API in MultivariateStats is changed.
+See https://github.com/JuliaStats/MultivariateStats.jl/issues/109 and https://github.com/JuliaStats/MultivariateStats.jl/issues/95.
